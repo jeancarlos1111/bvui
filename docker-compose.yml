@@ -1,0 +1,118 @@
+services:
+    app:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        container_name: bvui-app
+        ports:
+            - "${APP_PORT:-8000}:8000"
+            - "${VITE_PORT:-5173}:5173"
+        environment:
+            DB_CONNECTION: mariadb
+            DB_HOST: mariadb
+            DB_PORT: 3306
+            DB_DATABASE: "${DB_DATABASE:-bvui}"
+            DB_USERNAME: root
+            DB_PASSWORD: "${DB_PASSWORD:-secret}"
+            REDIS_HOST: redis
+            MEILISEARCH_HOST: "http://meilisearch:7700"
+        volumes:
+            - ".:/var/www/html"
+            - "./docker/supervisord.conf:/etc/supervisor/conf.d/supervisord.conf"
+        depends_on:
+            mariadb:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+            meilisearch:
+                condition: service_healthy
+        networks:
+            - bvui-network
+
+    mariadb:
+        image: "mariadb:10.11"
+        container_name: bvui-mariadb
+        ports:
+            - "${FORWARD_DB_PORT:-3306}:3306"
+        environment:
+            MYSQL_ROOT_PASSWORD: "${DB_PASSWORD:-secret}"
+            MYSQL_ROOT_HOST: "%"
+            MYSQL_DATABASE: "${DB_DATABASE:-bvui}"
+            MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+        volumes:
+            - "bvui-mariadb:/var/lib/mysql"
+        networks:
+            - bvui-network
+        healthcheck:
+            test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+            retries: 5
+            timeout: 5s
+            start_period: 15s
+
+    phpmyadmin:
+        image: "phpmyadmin:latest"
+        container_name: bvui-phpmyadmin
+        ports:
+            - "${FORWARD_PMA_PORT:-8080}:80"
+        environment:
+            PMA_HOST: mariadb
+            PMA_PORT: 3306
+            PMA_USER: "root"
+            PMA_PASSWORD: "${DB_PASSWORD:-secret}"
+            UPLOAD_LIMIT: 300M
+        depends_on:
+            mariadb:
+                condition: service_healthy
+        networks:
+            - bvui-network
+
+    meilisearch:
+        image: "getmeili/meilisearch:latest"
+        container_name: bvui-meilisearch
+        ports:
+            - "${FORWARD_MEILISEARCH_PORT:-7700}:7700"
+        environment:
+            MEILI_NO_ANALYTICS: "true"
+            MEILI_ENV: "development"
+            MEILI_MASTER_KEY: "${MEILISEARCH_KEY:-masterKey}"
+        volumes:
+            - "bvui-meilisearch:/meili_data"
+        networks:
+            - bvui-network
+        healthcheck:
+            test:
+                [
+                    "CMD",
+                    "wget",
+                    "--no-verbose",
+                    "--spider",
+                    "http://127.0.0.1:7700/health",
+                ]
+            retries: 3
+            timeout: 5s
+
+    redis:
+        image: "redis:alpine"
+        container_name: bvui-redis
+        ports:
+            - "${FORWARD_REDIS_PORT:-6379}:6379"
+        volumes:
+            - "bvui-redis:/data"
+        networks:
+            - bvui-network
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            retries: 3
+            timeout: 5s
+
+networks:
+    bvui-network:
+        driver: bridge
+
+volumes:
+    bvui-mariadb:
+        driver: local
+    bvui-meilisearch:
+        driver: local
+    bvui-redis:
+        driver: local
