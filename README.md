@@ -65,7 +65,15 @@ docker compose up -d --build
 
 > **Nota:** El contenedor `bvui-app` espera automáticamente a que `mariadb`, `redis` y `meilisearch` pasen su verificación de salud (`service_healthy`) antes de iniciar.
 
-### 3. Migraciones y Seeders
+### 3. Compilar Assets de Frontend (Vite)
+
+Compilar el bundle de producción (genera `public/build/manifest.json`):
+
+```bash
+docker compose exec app npm run build
+```
+
+### 4. Migraciones y Seeders
 
 Ejecutar migraciones de base de datos (crea tablas de usuarios, permisos, documentos, caché, colas):
 
@@ -79,7 +87,10 @@ Ejecutar seeders de roles y permisos iniciales:
 docker compose exec app php artisan db:seed
 ```
 
-### 4. Configurar y Sincronizar Meilisearch (Scout)
+### 5. Configurar y Sincronizar Meilisearch (Scout)
+
+> [!IMPORTANT]
+> **Paso obligatorio tras crear o resetear el contenedor:** Meilisearch inicia sin atributos filtrables por defecto. Si no se sincroniza la configuración, las búsquedas fallarán con el error `Attribute status is not filterable`.
 
 Sincronizar atributos filtrables/ordenables del índice documental:
 
@@ -88,7 +99,7 @@ docker compose exec app php artisan scout:sync-index-settings
 docker compose exec app php artisan scout:import "App\Models\Document"
 ```
 
-### 5. Datos de Prueba Masivos (Opcional)
+### 6. Datos de Prueba Masivos (Opcional)
 
 Para pruebas de rendimiento y volumen, se incluye `TestingDataSeeder` que crea 500 usuarios falsos y 10.000 documentos vinculados:
 
@@ -119,7 +130,7 @@ docker compose exec app php artisan scout:import "App\Models\Document"
 
 El contenedor `bvui-app` ejecuta Supervisor para administrar la aplicación web y los workers en paralelo:
 
-- `php-serve`: Ejecuta `composer install`, `npm install` y `php artisan serve`.
+- `php-serve`: Ejecuta `composer install`, `npm install`, `npm run build` y `php artisan serve`.
 - `laravel-worker` (00 al 03): 4 procesos de `artisan queue:work` para procesamiento asíncrono.
 
 ### Comandos útiles de Supervisor:
@@ -152,3 +163,22 @@ docker compose exec app php artisan optimize:clear
 # Ejecutar tests con Pest
 docker compose exec app php artisan test --compact
 ```
+
+---
+
+## 🛠️ Solución de Problemas (Troubleshooting)
+
+### Error: `Vite manifest not found at: .../public/build/manifest.json`
+- **Causa:** No se generaron los archivos compilados de CSS/JS para producción.
+- **Solución:**
+  ```bash
+  docker compose exec app npm run build
+  ```
+
+### Error: `Attribute status is not filterable` en Meilisearch
+- **Causa:** El volumen de Meilisearch fue creado de cero y no tiene aplicadas las reglas de `config/scout.php`.
+- **Solución:**
+  ```bash
+  docker compose exec app php artisan scout:sync-index-settings
+  docker compose exec app php artisan scout:import "App\Models\Document"
+  ```
