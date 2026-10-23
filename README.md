@@ -115,14 +115,17 @@ docker compose exec app php artisan scout:import "App\Models\Document"
 
 ## 🌐 Servicios y Puertos
 
+> [!NOTE]
+> Por seguridad, los servicios internos (MariaDB, Redis, Meilisearch, phpMyAdmin) están enlazados exclusivamente a `127.0.0.1` (localhost) en `docker-compose.yml` para evitar exposición accidental a internet o ataques en servidores públicos.
+
 | Servicio | Contenedor | Host / Puerto | Descripción |
 |---|---|---|---|
 | **App Web** | `bvui-app` | [http://localhost:8000](http://localhost:8000) | Laravel Web App (`artisan serve`) |
 | **Vite Dev Server** | `bvui-app` | [http://localhost:5173](http://localhost:5173) | Hot Module Replacement (HMR) |
-| **phpMyAdmin** | `bvui-phpmyadmin` | [http://localhost:8080](http://localhost:8080) | Panel de administración MariaDB |
-| **Meilisearch** | `bvui-meilisearch` | [http://localhost:7700](http://localhost:7700) | Motor de búsqueda indexado |
-| **MariaDB** | `bvui-mariadb` | `localhost:3306` | Servidor MariaDB 10.11 |
-| **Redis** | `bvui-redis` | `localhost:6379` | Broker de colas y caché |
+| **phpMyAdmin** | `bvui-phpmyadmin` | `127.0.0.1:8080` | Panel MariaDB (restringido a localhost / túnel SSH) |
+| **Meilisearch** | `bvui-meilisearch` | `127.0.0.1:7700` | Motor indexado (restringido a localhost) |
+| **MariaDB** | `bvui-mariadb` | `127.0.0.1:3306` | Servidor MariaDB 10.11 (restringido a localhost) |
+| **Redis** | `bvui-redis` | `127.0.0.1:6379` | Broker de colas y caché (restringido a localhost) |
 
 ---
 
